@@ -27,6 +27,12 @@ const Events = () => {
   const [eventLocation, setEventLocation] = useState("");
   const [eventStatus, setEventStatus] = useState("");
 
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [numTickets, setNumTickets] = useState(1);
+
   const queryClient = useQueryClient();
   const createEventMutation = useMutation({
     mutationFn: async (newEvent) => {
@@ -56,6 +62,33 @@ const Events = () => {
     },
   });
 
+  const bookTicketMutation = useMutation({
+    mutationFn: async (bookingData) => {
+      const response = await fetch("/api/book-ticket", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(bookingData),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to book ticket");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["events"]);
+      toast("Ticket booked successfully");
+      setBookingOpen(false);
+      setUserName("");
+      setUserEmail("");
+      setNumTickets(1);
+    },
+    onError: () => {
+      toast("Failed to book ticket");
+    },
+  });
+
   const handleSubmit = (e) => {
     e.preventDefault();
     createEventMutation.mutate({
@@ -63,6 +96,16 @@ const Events = () => {
       date: eventDate,
       location: eventLocation,
       status: eventStatus,
+    });
+  };
+
+  const handleBookingSubmit = (e) => {
+    e.preventDefault();
+    bookTicketMutation.mutate({
+      eventId: selectedEvent.id,
+      userName,
+      userEmail,
+      numTickets,
     });
   };
 
@@ -144,11 +187,52 @@ const Events = () => {
               <TableCell>
                 <Button variant="outline" size="sm">Edit</Button>
                 <Button variant="outline" size="sm" className="ml-2">Delete</Button>
+                <Button variant="outline" size="sm" className="ml-2" onClick={() => { setSelectedEvent(event); setBookingOpen(true); }}>Book Ticket</Button>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Book Ticket for {selectedEvent?.name}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleBookingSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="userName">Name</Label>
+              <Input
+                id="userName"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="userEmail">Email</Label>
+              <Input
+                id="userEmail"
+                type="email"
+                value={userEmail}
+                onChange={(e) => setUserEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="numTickets">Number of Tickets</Label>
+              <Input
+                id="numTickets"
+                type="number"
+                value={numTickets}
+                onChange={(e) => setNumTickets(e.target.value)}
+                min="1"
+                required
+              />
+            </div>
+            <Button type="submit">Book</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
